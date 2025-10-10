@@ -1,0 +1,36 @@
+# Excel 관련 파일들
+*.xlsx
+*.xls
+*.xlsm
+*.xlsb
+~$*.xlsx
+~$*.xls
+~$*.xlsm
+~$*.xlsb
+
+# Excel 임시 파일들
+*.tmp
+*.temp
+
+# VBA 관련 임시 파일들
+*.vbw
+*.vbp
+
+# 시스템 파일들
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE 관련 파일들
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 로그 파일들
+*.log
+
+# 백업 파일들
+*.bak
+*.backup
+*~
