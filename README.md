@@ -9,6 +9,7 @@ Excel 업무 자동화를 위한 다양한 VBA 매크로 프로젝트 모음입�
   - [1. 볼드체 처리 매크로](#1-볼드체-처리-매크로)
   - [2. 품목코드 그룹화 매크로](#2-품목코드-그룹화-매크로)
   - [3. 엑셀 파일 병합 매크로](#3-엑셀-파일-병합-매크로)
+  - [4. VBA 내보내기/가져오기 매크로](#4-vba-내보내기가져오기-매크로)
 - [설치 및 사용법](#-설치-및-사용법)
 - [기술 스택](#-기술-스택)
 - [버전 관리](#-버전-관리)
@@ -22,6 +23,9 @@ Excel_macro/
 ├── bold.bas                    # HTML 볼드 태그 변환 매크로
 ├── ItemCode_GroupBy.bas        # 품목코드 그룹화 매크로
 ├── Merge_sheet.bas             # 엑셀 파일 병합 매크로
+├── VBA_Export/
+│   ├── ExportImportManager.bas # VBA 내보내기/가져오기 매크로
+│   └── (내보내기된 파일들)      # 자동 생성되는 VBA 파일들
 ├── ExcelVBA/
 │   └── MyMacro.xlsm           # 매크로 통합 파일
 ├── personal_vba_home/          # 개인 VBA 매크로 라이브러리
@@ -304,6 +308,177 @@ FileName = Dir(FolderPath & "*.xlsx")
 
 ---
 
+### 4. VBA 내보내기/가져오기 매크로
+
+**파일**: `VBA_Export/ExportImportManager.bas`
+
+#### 📋 기능 설명
+Excel VBA 프로젝트의 모든 모듈/클래스/폼을 파일로 내보내거나, 파일에서 가져오는 기능을 제공합니다. VBA 코드를 버전 관리(Git)하거나 여러 Excel 파일 간에 공유할 때 매우 유용합니다.
+
+#### ✨ 주요 기능
+- **완전 자동화**: 모든 VBA 구성요소를 한 번에 처리
+- **다양한 파일 형식 지원**: 
+  - `.bas` (표준 모듈)
+  - `.cls` (클래스 모듈)  
+  - `.frm` (사용자 정의 폼)
+- **중복 모듈 스마트 처리**: 동일한 이름의 모듈 존재 시 사용자 선택
+- **강화된 오류 처리**: 각 단계별 상세한 오류 메시지
+- **접근 권한 자동 확인**: VBA 프로젝트 접근 권한 사전 검증
+- **진행 상황 표시**: 처리된 파일 수와 결과 상세 보고
+- **폴더 자동 관리**: `VBA_Export` 폴더 자동 생성 및 관리
+
+#### 💡 사용 시나리오
+
+**Git 버전 관리:**
+```
+1. 매크로 실행 → "Export" 선택
+2. VBA_Export 폴더의 모든 .bas/.cls/.frm 파일이 생성됨
+3. Git에 커밋/푸시
+4. 다른 컴퓨터에서 Git 풀 후 → "Import" 선택
+5. 모든 VBA 코드가 복원됨!
+```
+
+**여러 Excel 파일에 매크로 배포:**
+```
+1. 원본 Excel에서 Export → VBA_Export 폴더 복사
+2. 대상 Excel 파일들에서 Import
+3. 모든 파일에 동일한 매크로 적용 완료!
+```
+
+**백업 및 복원:**
+```
+백업: Export → VBA_Export 폴더를 안전한 곳에 저장
+복원: VBA_Export 폴더 복사 후 Import
+```
+
+#### 🎯 사용 방법
+
+1. **초기 설정 (최초 1회만)**
+   ```
+   [파일] → [옵션] → [보안 센터] → [보안 센터 설정]
+   → [매크로 설정] → "VBA 프로젝트 개체 모델에 대한 액세스 신뢰" 체크
+   → Excel 재시작
+   ```
+
+2. **매크로 실행**
+   - `Alt + F8` → `Open_ExportImportManager` 선택 → 실행
+   - 또는 VBA 편집기에서 직접 `F5` 실행
+
+3. **기능 선택**
+   ```
+   What would you like to do?
+   
+   Yes(Y)     -> Export (Save current VBA to files)
+   No(N)      -> Import (Load VBA from files)
+   Cancel     -> Exit
+   ```
+
+4. **결과 확인**
+   - **내보내기**: "Export completed successfully! Success: X files"
+   - **가져오기**: "Import completed successfully! Added: X files, Replaced: Y files"
+
+#### ⚙️ 기술 상세
+
+**처리되는 VBA 구성요소:**
+- **Type 1**: 표준 모듈 → `.bas` 파일
+- **Type 2**: 클래스 모듈 → `.cls` 파일  
+- **Type 3**: 사용자 정의 폼 → `.frm` 파일
+- **Type 100**: 문서 모듈 (Sheet, ThisWorkbook) → `.bas` 파일
+
+**중복 모듈 처리 옵션:**
+- **예(Y)**: 현재 모듈만 덮어쓰기
+- **아니오(N)**: 건너뛰기
+- **취소**: 이후 모든 중복 모듈 자동 덮어쓰기
+
+**안전 기능:**
+- 읽기 전용 모드로 원본 파일 보호
+- 폴더/파일 존재 여부 사전 확인
+- 부분 실패 시에도 진행 상황 표시
+- VBA 프로젝트 접근 권한 자동 검증
+
+#### 📊 처리 예시
+
+**내보내기 결과:**
+```
+VBA_Export/
+├── Module1.bas
+├── Module2.bas  
+├── MyClass.cls
+├── UserForm1.frm
+├── Sheet1.bas
+└── ThisWorkbook.bas
+
+Export completed successfully!
+Export Results:
+   - Success: 6 files
+   - Skipped: 0 files
+```
+
+**가져오기 시 중복 처리:**
+```
+Module 'Module1' already exists.
+Do you want to overwrite it?
+
+Yes(Y)     -> Overwrite this module only
+No(N)      -> Skip this module  
+Cancel     -> Overwrite all remaining modules
+```
+
+#### 🛡️ 안전 기능
+
+- **원본 보존**: 원본 Excel 파일은 절대 변경되지 않음
+- **권한 검증**: VBA 프로젝트 접근 불가 시 설정 방법 안내
+- **오류 복구**: 부분 실패 시에도 완료된 작업 결과 유지
+- **중복 방지**: 같은 이름의 모듈 자동 감지 및 처리
+- **빈 폴더 대응**: 가져올 파일이 없을 때 적절한 안내
+
+#### 📝 버전 히스토리
+
+**v2.1 (2025-10-11) - 완전 영어화 및 안정화**
+- ✅ 모든 텍스트를 영어로 변경 (VBA 편집기 호환성 향상)
+- ✅ Attribute VB_Name 문법 오류 해결
+- ✅ 컴파일 오류 완전 해결
+- ✅ 중복 모듈 처리 로직 강화
+- ✅ 상세한 진행 상황 및 결과 보고
+- ✅ VBA 프로젝트 접근 권한 자동 확인
+
+**v2.0 (2025-10-11) - 기능 개선**
+- ✅ 에러 핸들링 강화
+- ✅ 중복 모듈 처리 로직 추가
+- ✅ 상세한 진행 상황 및 결과 보고
+- ✅ VBA 프로젝트 접근 권한 자동 확인
+
+#### 💪 권장 사용 환경
+
+- **Excel 버전**: 2010 이상
+- **파일 크기**: 대용량 VBA 프로젝트도 처리 가능
+- **처리 속도**: 일반적으로 1-5초 내 완료
+- **호환성**: Windows/Mac Excel 모두 지원
+
+#### 🔧 커스터마이징 팁
+
+**특정 모듈만 내보내기:**
+```vba
+' ExportAllModules 함수 수정 예시
+If vbComp.Name Like "Module*" Then  ' Module로 시작하는 것만
+    vbComp.Export exportPath & vbComp.Name & fileExt
+End If
+```
+
+**내보내기 경로 변경:**
+```vba
+' 기본 경로 대신 사용자 지정 경로
+exportPath = "C:\MyVBA\Export\"
+```
+
+**특정 확장자만 가져오기:**
+```vba
+' ImportAllModules 함수에서 특정 부분만 주석 해제
+' fileName = Dir(importPath & "*.bas")  ' .bas만
+```
+
+---
+
 ## 🔧 설치 및 사용법
 
 ### 공통 설치 절차
@@ -459,6 +634,7 @@ SOFTWARE.
 
 | 날짜 | 버전 | 내용 |
 |------|------|------|
+| 2025-10-11 | 2.3 | ExportImportManager.bas v2.1 추가 - VBA 내보내기/가져오기 매크로 |
 | 2025-10-10 | 2.2 | Merge_sheet.bas v2.0 대폭 개선 - 오류 처리, 시트명 중복 해결 |
 | 2025-10-11 | 2.1 | Merge_sheet.bas 추가 - 엑셀 파일 병합 매크로 |
 | 2025-10-10 | 2.0 | bold.bas 추가, README 전체 개편 |
@@ -473,4 +649,4 @@ SOFTWARE.
 
 ---
 
-**최종 수정일**: 2025년 10월 10일
+**최종 수정일**: 2025년 10월 11일
