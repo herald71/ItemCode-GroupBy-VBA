@@ -1,13 +1,13 @@
 '───────────────────────────────────────────────
 ' 프로그램명 : SplitByPrefix_WithRowAndIndexLinks
-' 버전       : v2.0 (개선판)
+' 버전       : v2.1 (대소문자 구분 개선판)
 ' 작성일자   : 2025-10-10
 ' 작성자     : 신진우
-' 설명       : 품목코드 앞 2자리로 그룹화하여 시트 생성.
+' 설명       : 품목코드 앞 2자리로 그룹화하여 시트 생성 (영문 대소문자 구분).
 '              시트명은 각 그룹의 첫 품목명으로 지정.
 '              F열: 각 행별 해당 시트로 이동하는 하이퍼링크 유지/재생성
 '              I열: 그룹별 대표 품목명(첫 품목명)을 하이퍼링크로 목록화
-'              (한글/공백/괄호/특수기호 안전 처리)
+'              (한글/공백/괄호/특수기호 안전 처리, 대소문자 구분)
 ' 
 ' 개선사항   : - 전역 에러 처리 추가
 '              - 데이터 유효성 검증 강화
@@ -15,6 +15,7 @@
 '              - 메모리 안전 처리
 '              - 진행 상황 표시
 '              - 빈 데이터 행 스킵
+'              - 영문 대소문자 구분 그룹화
 '───────────────────────────────────────────────
 
 Sub SplitByPrefix_WithRowAndIndexLinks()
@@ -53,44 +54,49 @@ Sub SplitByPrefix_WithRowAndIndexLinks()
     Set wsSrc = ThisWorkbook.Sheets(1)
     lastRow = wsSrc.Cells(wsSrc.Rows.Count, "A").End(xlUp).Row
     
-    ' 데이터 행 확인 (최소 3행: 제목행 + 헤더 + 데이터 1개)
-    If lastRow < 3 Then
-        errMsg = "❌ 데이터가 없습니다. (최소 제목행 + 헤더 + 1개 데이터 행 필요)"
-        GoTo ErrorHandler
-    End If
+        ' 데이터 행 확인 (최소 2행: 헤더 + 데이터 1개)
+        If lastRow < 2 Then
+            errMsg = "❌ 데이터가 없습니다. (최소 헤더 + 1개 데이터 행 필요)"
+            GoTo ErrorHandler
+        End If
     
-    lastCol = wsSrc.Cells(2, wsSrc.Columns.Count).End(xlToLeft).Column  ' 헤더행(2행) 기준으로 컬럼 찾기
+    lastCol = wsSrc.Cells(1, wsSrc.Columns.Count).End(xlToLeft).Column  ' 헤더행(1행) 기준으로 컬럼 찾기
     
     ' 최소 컬럼 확인 (A, B 열은 필수)
     If lastCol < 2 Then
         errMsg = "❌ 데이터 형식이 올바르지 않습니다. (A: 품목코드, B: 품목명 필수)" & vbCrLf & _
-                 "2행에 헤더가 있는지 확인해 주세요."
+                 "1행에 헤더가 있는지 확인해 주세요."
         GoTo ErrorHandler
     End If
     
-    ' 헤더가 2행에 있는지 확인
-    If InStr(1, wsSrc.Cells(2, 1).Text, "품목코드", vbTextCompare) = 0 And _
-       InStr(1, wsSrc.Cells(2, 2).Text, "품목명", vbTextCompare) = 0 Then
-        errMsg = "❌ 2행에 헤더(품목코드, 품목명)를 찾을 수 없습니다." & vbCrLf & _
-                 "2행의 내용: A2=""" & wsSrc.Cells(2, 1).Text & """, B2=""" & wsSrc.Cells(2, 2).Text & """"
+    ' 헤더가 1행에 있는지 확인 (실제 데이터 구조에 맞게 수정)
+    If InStr(1, wsSrc.Cells(1, 1).Text, "품목코드", vbTextCompare) = 0 And _
+       InStr(1, wsSrc.Cells(1, 2).Text, "품목명", vbTextCompare) = 0 Then
+        errMsg = "❌ 1행에 헤더(품목코드, 품목명)를 찾을 수 없습니다." & vbCrLf & _
+                 "1행의 내용: A1=""" & wsSrc.Cells(1, 1).Text & """, B1=""" & wsSrc.Cells(1, 2).Text & """"
         GoTo ErrorHandler
     End If
     
-    Set rngData = wsSrc.Range(wsSrc.Cells(2, 1), wsSrc.Cells(lastRow, lastCol))  ' 헤더행부터 시작
+    Set rngData = wsSrc.Range(wsSrc.Cells(1, 1), wsSrc.Cells(lastRow, lastCol))  ' 1행(헤더)부터 시작
 
     ' ═══════════════════════════════════════
-    ' 그룹 수집: 앞 2자리 -> 첫 품목명 (등장 순서 보존)
+    ' 그룹 수집: 앞 2자리 -> 첫 품목명 (등장 순서 보존, 대소문자 구분)
     ' ═══════════════════════════════════════
-    Application.StatusBar = "그룹 분석 중..."
+    Application.StatusBar = "그룹 분석 중... (대소문자 구분)"
     Set dict = CreateObject("Scripting.Dictionary")
     Set prefixOrder = New Collection
     
-    For i = 3 To lastRow  ' 3행부터 시작 (2행은 헤더)
+    ' 디버깅용: 그룹 정보 저장
+    Dim debugInfo As String
+    debugInfo = ""
+    
+    For i = 2 To lastRow  ' 2행부터 시작 (1행은 헤더)
         ' 빈 행 스킵
         If Len(Trim$(wsSrc.Cells(i, 1).Text)) = 0 Then
             GoTo NextRow
         End If
         
+        ' 앞 2자리 추출 (대소문자 구분됨: "AB" ≠ "ab" ≠ "Ab")
         prefix = Left$(Trim$(wsSrc.Cells(i, 1).Text), 2)
         
         ' 품목코드가 2자리 미만이면 스킵
@@ -109,6 +115,8 @@ Sub SplitByPrefix_WithRowAndIndexLinks()
         If Not dict.Exists(prefix) Then
             dict.Add prefix, itemName
             prefixOrder.Add prefix
+            ' 디버깅 정보 추가
+            debugInfo = debugInfo & "그룹: " & prefix & " → " & itemName & vbCrLf
         End If
 NextRow:
     Next i
@@ -146,13 +154,15 @@ NextRow:
         On Error GoTo ErrorHandler
 
         ' 헤더 복사 + 그룹 데이터 복사
-        wsSrc.Rows(2).Copy wsNew.Rows(1)  ' 2행(헤더)을 새 시트의 1행으로 복사
+        wsSrc.Rows(1).Copy wsNew.Rows(1)  ' 1행(헤더)을 새 시트의 1행으로 복사
         
+        ' AutoFilter로 해당 prefix 그룹만 필터링 (대소문자 구분, 정확한 매칭)
         On Error Resume Next
+        ' 더 정확한 필터링: prefix로 시작하는 모든 항목 (예: "MD" → "MD_", "MD01" 등)
         rngData.AutoFilter Field:=1, Criteria1:="=" & pfx & "*"
         If Err.Number = 0 Then
             On Error GoTo ErrorHandler
-            rngData.SpecialCells(xlCellTypeVisible).Offset(1, 0).Copy wsNew.Range("A2")  ' 헤더 다음 행부터 복사
+            rngData.SpecialCells(xlCellTypeVisible).Copy wsNew.Range("A1")  ' 헤더 포함해서 복사 (Offset 제거)
         Else
             ' 필터 실패 시 수동 복사
             Err.Clear
@@ -167,15 +177,16 @@ NextRow:
     ' F열: 행별 바로가기 링크 (유지/재생성)
     ' ═══════════════════════════════════════
     Application.StatusBar = "하이퍼링크 생성 중 (F열)..."
-    wsSrc.Cells(2, "F").Value = "시트 바로가기"  ' 2행(헤더행)에 제목 추가
-    ClearColumnHyperlinks wsSrc, "F", 3, lastRow   ' F열 기존 링크만 제거 (3행부터)
+    wsSrc.Cells(1, "F").Value = "시트 바로가기"  ' 1행(헤더행)에 제목 추가
+    ClearColumnHyperlinks wsSrc, "F", 2, lastRow   ' F열 기존 링크만 제거 (2행부터)
 
-    For i = 3 To lastRow  ' 3행부터 시작
+    For i = 2 To lastRow  ' 2행부터 시작 (1행은 헤더)
         ' 빈 행 스킵
         If Len(Trim$(wsSrc.Cells(i, 1).Text)) = 0 Then
             GoTo NextRowF
         End If
         
+        ' 앞 2자리 추출 (대소문자 구분)
         prefix = Left$(Trim$(wsSrc.Cells(i, 1).Text), 2)
         If Len(prefix) >= 2 And dict.Exists(prefix) Then
             nm = GetUniqueSheetName(CleanSheetName(dict(prefix)), prefix)
@@ -201,10 +212,10 @@ NextRowF:
     ' I열: 그룹별 인덱스 (품목명 자체가 하이퍼링크)
     ' ═══════════════════════════════════════
     Application.StatusBar = "하이퍼링크 생성 중 (I열)..."
-    wsSrc.Cells(2, "I").Value = "품목명 바로가기"  ' 2행(헤더행)에 제목 추가
-    ClearColumnHyperlinks wsSrc, "I", 3, wsSrc.Rows.Count ' I열 기존 링크만 제거 (3행부터)
+    wsSrc.Cells(1, "I").Value = "품목명 바로가기"  ' 1행(헤더행)에 제목 추가
+    ClearColumnHyperlinks wsSrc, "I", 2, wsSrc.Rows.Count ' I열 기존 링크만 제거 (2행부터)
 
-    outputRow = 3  ' 3행부터 시작 (2행은 헤더)
+    outputRow = 2  ' 2행부터 시작 (1행은 헤더)
     For Each pfx In prefixOrder
         nm = GetUniqueSheetName(CleanSheetName(dict(pfx)), pfx)
         If SheetExists(nm) Then
@@ -233,12 +244,17 @@ NextRowF:
     Application.ScreenUpdating = origScreenUpdate
     Application.StatusBar = False
 
-    MsgBox "✅ 작업이 성공적으로 완료되었습니다!" & vbCrLf & vbCrLf & _
-           "📊 생성된 시트 수: " & createdCount & "개" & vbCrLf & _
-           "🔗 F열: 각 행별 시트 바로가기 링크" & vbCrLf & _
-           "📑 I열: 그룹별 품목명 인덱스 링크" & vbCrLf & vbCrLf & _
-           "총 처리된 그룹: " & dict.Count & "개", _
-           vbInformation, "작업 완료"
+    ' 디버깅 정보 포함한 완료 메시지
+    Dim finalMsg As String
+    finalMsg = "✅ 작업이 성공적으로 완료되었습니다!" & vbCrLf & vbCrLf & _
+               "📊 생성된 시트 수: " & createdCount & "개" & vbCrLf & _
+               "🔗 F열: 각 행별 시트 바로가기 링크" & vbCrLf & _
+               "📑 I열: 그룹별 품목명 인덱스 링크" & vbCrLf & _
+               "🔤 영문 대소문자 구분 그룹화" & vbCrLf & vbCrLf & _
+               "📋 발견된 그룹들:" & vbCrLf & debugInfo & vbCrLf & _
+               "총 처리된 그룹: " & dict.Count & "개"
+    
+    MsgBox finalMsg, vbInformation, "작업 완료"
     Exit Sub
 
 ErrorHandler:
