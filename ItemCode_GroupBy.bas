@@ -132,6 +132,9 @@ NextRow:
     ' 그룹별 시트 생성 (시트명 = 첫 품목명 정제)
     ' ═══════════════════════════════════════
     createdCount = 0
+    Dim srcSheetName As String
+    srcSheetName = wsSrc.Name  ' 원본 시트명 저장
+    
     For Each pfx In prefixOrder
         createdCount = createdCount + 1
         Application.StatusBar = "시트 생성 중... (" & createdCount & "/" & dict.Count & ")"
@@ -170,6 +173,21 @@ NextRow:
         End If
         wsSrc.AutoFilterMode = False
 
+        ' ═══════════════════════════════════════
+        ' 재고현황 시트로 바로가기 링크 추가 (H1 셀)
+        ' ═══════════════════════════════════════
+        On Error Resume Next
+        wsNew.Hyperlinks.Add _
+            Anchor:=wsNew.Cells(1, "H"), _
+            Address:="", _
+            SubAddress:="'" & srcSheetName & "'!A1", _
+            TextToDisplay:="◀ 재고현황으로"
+        If Err.Number <> 0 Then
+            wsNew.Cells(1, "H").Value = "◀ 재고현황"
+            Err.Clear
+        End If
+        On Error GoTo ErrorHandler
+        
         wsNew.Columns.AutoFit
     Next pfx
 
